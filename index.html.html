@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover" />
+  <title>GiroGiro</title>
+
+  <style>
+    :root{
+      --bg:#000;
+      --neon1:#00ffd5;
+      --neon2:#49ff3a;
+      --grid1: rgba(0,255,213,.42);
+      --grid2: rgba(73,255,58,.28);
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;
+      background:#000;
+      color:#fff;
+      overflow:hidden;
+      font-family: monospace;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+    }
+
+    /* START SCREEN */
+    #start{
+      position:fixed;
+      inset:0;
+      display:grid;
+      place-items:center;
+      background:#000;
+      z-index:10;
+    }
+    #startText{
+      text-align:center;
+    }
+    #startText .press{
+      font-size:48px;
+      letter-spacing:6px;
+      color:var(--neon1);
+      text-shadow:0 0 12px var(--neon1);
+    }
+    #startText .start{
+      font-size:64px;
+      letter-spacing:8px;
+      margin-top:10px;
+      color:var(--neon2);
+      text-shadow:0 0 16px var(--neon2);
+    }
+    #startText .tap{
+      margin-top:20px;
+      font-size:14px;
+      opacity:.7;
+    }
+
+    /* HUD */
+    #hud{
+      position:fixed;
+      top:10px;
+      left:10px;
+      right:10px;
+      display:flex;
+      justify-content:space-between;
+      z-index:5;
+      pointer-events:none;
+    }
+
+    /* SCENE */
+    #scene{
+      position:fixed;
+      inset:0 0 90px 0;
+      display:grid;
+      place-items:center;
+    }
+
+    /* FLOOR */
+    #floorWrap{
+      position:absolute;
+      left:-20vw;
+      right:-20vw;
+      bottom:-25vh;
+      height:60vh;
+      transform:perspective(700px) rotateX(60deg);
+    }
+    #floor{
+      width:100%;
+      height:100%;
+      background:
+        linear-gradient(to right, var(--grid1) 1px, transparent 1px) 0 0 / 48px 48px,
+        linear-gradient(to bottom, var(--grid1) 1px, transparent 1px) 0 0 / 48px 48px,
+        linear-gradient(to right, var(--grid2) 1px, transparent 1px) 24px 24px / 48px 48px,
+        linear-gradient(to bottom, var(--grid2) 1px, transparent 1px) 24px 24px / 48px 48px;
+      animation:move 1s linear infinite;
+      mask-image:linear-gradient(to top,#000,#0008,transparent);
+    }
+    @keyframes move{
+      from{background-position:0 0,0 0,24px 24px,24px 24px}
+      to{background-position:0 48px,0 48px,24px 72px,24px 72px}
+    }
+
+    /* CHARACTER */
+    #charWrap{
+      width:260px;
+      max-width:80vw;
+      aspect-ratio:3/5;
+      display:grid;
+      place-items:center;
+      z-index:3;
+      will-change:transform;
+    }
+    #charWrap img{
+      width:100%;
+      pointer-events:none;
+      user-select:none;
+    }
+
+    /* BUTTON */
+    #controls{
+      position:fixed;
+      bottom:10px;
+      left:0;
+      right:0;
+      display:grid;
+      place-items:center;
+      z-index:6;
+    }
+    #spin{
+      width:90%;
+      height:60px;
+      font-size:22px;
+      letter-spacing:6px;
+      background:#111;
+      border:2px solid #333;
+      color:#fff;
+    }
+    #spin:active{
+      transform:scale(.97);
+    }
+
+    /* END */
+    #end{
+      position:fixed;
+      inset:0;
+      background:#000;
+      display:none;
+      place-items:center;
+      z-index:20;
+    }
+    #end.show{display:grid}
+    #end .score{
+      font-size:72px;
+      color:var(--neon2);
+      text-shadow:0 0 20px var(--neon2);
+    }
+  </style>
+</head>
+
+<body>
+
+  <div id="start">
+    <div id="startText">
+      <div class="press">PRESS</div>
+      <div class="start">START</div>
+      <div class="tap">TAP TO PLAY</div>
+    </div>
+  </div>
+
+  <div id="hud">
+    <div>SCORE: <span id="score">0</span></div>
+    <div>TIME: <span id="time">10</span></div>
+  </div>
+
+  <div id="scene">
+    <div id="floorWrap"><div id="floor"></div></div>
+    <div id="charWrap">
+      <img src="character.png" alt="">
+    </div>
+  </div>
+
+  <div id="controls">
+    <button id="spin">GIRA</button>
+  </div>
+
+  <div id="end">
+    <div>
+      <div>SCORE</div>
+      <div class="score" id="finalScore">0</div>
+    </div>
+  </div>
+
+  <audio id="music" src="music.mp3" loop></audio>
+
+  <script>
+    const start=document.getElementById("start");
+    const spin=document.getElementById("spin");
+    const charWrap=document.getElementById("charWrap");
+    const scoreEl=document.getElementById("score");
+    const timeEl=document.getElementById("time");
+    const end=document.getElementById("end");
+    const finalScore=document.getElementById("finalScore");
+    const music=document.getElementById("music");
+
+    let running=false;
+    let angle=0;
+    let total=0;
+    let vel=0;
+    let score=0;
+    let startTime=0;
+
+    function startGame(){
+      start.style.display="none";
+      running=true;
+      angle=0; total=0; vel=10; score=0;
+      scoreEl.textContent=0;
+      timeEl.textContent=10;
+      music.play().catch(()=>{});
+      startTime=performance.now();
+      requestAnimationFrame(loop);
+    }
+
+    function loop(t){
+      if(!running) return;
+      vel*=0.96;
+      angle+=vel*0.016;
+      total+=vel*0.016;
+      charWrap.style.transform=`rotate(${angle}deg)`;
+
+      score=Math.floor(Math.abs(total)/360);
+      scoreEl.textContent=score;
+
+      const left=Math.max(0,10-Math.floor((t-startTime)/1000));
+      timeEl.textContent=left;
+
+      if(left<=0){
+        running=false;
+        music.pause();
+        finalScore.textContent=score;
+        end.classList.add("show");
+        return;
+      }
+      requestAnimationFrame(loop);
+    }
+
+    start.addEventListener("pointerdown",startGame);
+    spin.addEventListener("pointerdown",()=>{if(running)vel+=8});
+    document.getElementById("scene").addEventListener("pointerdown",()=>{if(running)vel+=8});
+  </script>
+
+</body>
+</html>
